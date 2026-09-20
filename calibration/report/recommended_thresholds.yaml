@@ -1,11 +1,14 @@
 injection:
   flag_threshold: 0.78
 similarity:
-  drift_threshold: 0.25
-  authorship_margin: 0.05
+  drift_threshold: 0.3
+  authorship_margin: 0.2
+  authorship_min_injection: 0.1
 fusion:
-  uncorroborated_weight: 0.2
+  uncorroborated_weight: 0.35
+  corroboration_weight: 0.6
+  min_injection_for_corroboration: 0.0001
   ramp_width: 0.1
 labels:
-  suspicious: 0.4
+  suspicious: 0.6
   malicious: 0.85

@@ -6,7 +6,7 @@
 # scores and copy the chosen values back here. Flip `calibrated` to true (and
 # bump `version`) only when you have done that, so the trace never overstates.
 
-version: "2026-09-20-b"
+version: "2026-09-20-c"
 calibrated: true
 
 models:
@@ -42,7 +42,7 @@ similarity:
   authorship_min_injection: 0.10
 
 fusion:
-  uncorroborated_weight: 0.20
+  uncorroborated_weight: 0.35
   corroboration_weight: 0.60
   min_injection_for_corroboration: 0.0001
   ramp_width: 0.10
