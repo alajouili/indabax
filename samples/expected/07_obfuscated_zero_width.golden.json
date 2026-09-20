@@ -23,8 +23,8 @@
       "SPACED_LETTERS_COLLAPSED"
     ],
     "source_similarity": 0.3852,
-    "thresholds_calibrated": false,
-    "thresholds_version": "2026-09-19-a"
+    "thresholds_calibrated": true,
+    "thresholds_version": "2026-09-20-b"
   },
   "ml_confidence": 0.6992,
   "ml_label": "suspicious",

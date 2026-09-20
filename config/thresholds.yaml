@@ -6,8 +6,8 @@
 # scores and copy the chosen values back here. Flip `calibrated` to true (and
 # bump `version`) only when you have done that, so the trace never overstates.
 
-version: "2026-09-19-a"
-calibrated: false
+version: "2026-09-20-b"
+calibrated: true
 
 models:
   classifier:
@@ -50,7 +50,6 @@ fusion:
 labels:
   suspicious: 0.60
   malicious: 0.85
-
 
 evidence:
   localize_min_score: 0.30
