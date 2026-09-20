@@ -1,0 +1,64 @@
+# Every tunable number for the Part 2 detector lives here. Nothing below is
+# hard-coded in Python. Typos fail loudly (the loader rejects unknown keys).
+#
+# STATUS: the values in "injection", "labels", "similarity" and "fusion" are
+# PLACEHOLDERS until you run calibration/sweep_thresholds.py on real model
+# scores and copy the chosen values back here. Flip `calibrated` to true (and
+# bump `version`) only when you have done that, so the trace never overstates.
+
+version: "2026-09-19-a"
+calibrated: false
+
+models:
+  classifier:
+    id: protectai/deberta-v3-base-prompt-injection-v2
+    revision: "90c9989b1a342275dd0d1a95aad283c04e075671"           # from the architecture doc; replace with the full 40-char hash printed by scripts/download_models.py
+    injection_label: INJECTION   # matched case-insensitively against the model's id2label
+    max_length: 512              # per-chunk safety net; chunks are far shorter
+    batch_size: 8
+  embedder:
+    id: sentence-transformers/all-MiniLM-L6-v2
+    revision: null               # pin after download_models.py prints the resolved hash
+    batch_size: 8
+  hf_home: "C:/Users/TUF GAMING/.cache/huggingface"          # relative to the module root; overridden by an existing HF_HOME
+  num_threads: 1                 # fixed for determinism (requirement F5)
+
+normalization:
+  spaced_letters_min_run: 4      # "i g n o r e" (6 letters) collapses; "a b c" does not
+
+chunking:
+  enabled: true                  # false = classify the whole text once (ablation only)
+  window_words: 150              # ~200 sub-word tokens for English prose
+  overlap_words: 40              # ~50 tokens; an instruction up to this long is never cut in half
+  max_chunks: 32                 # latency budget; beyond it, keep head + tail and flag CONTENT_TRUNCATED
+  max_word_chars: 32             # longer unbroken runs are split so a blob cannot become one uncuttable "word"
+
+injection:
+  flag_threshold: 0.78
+
+similarity:
+  drift_threshold: 0.30
+  authorship_margin: 0.20
+  authorship_min_injection: 0.10
+
+fusion:
+  uncorroborated_weight: 0.20
+  corroboration_weight: 0.60
+  min_injection_for_corroboration: 0.0001
+  ramp_width: 0.10
+
+labels:
+  suspicious: 0.60
+  malicious: 0.85
+
+
+evidence:
+  localize_min_score: 0.30
+  max_sentences: 24
+  min_sentence_words: 5
+  min_sentence_chars: 30
+  context_radius: 0
+  max_chars: 400        # evidence_span length cap
+
+latency:
+  budget_ms: 3000                # asserted by tests/scripts on CPU (non-functional requirement)

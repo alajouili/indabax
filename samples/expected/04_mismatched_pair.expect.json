@@ -1,0 +1,6 @@
+{
+  "semantic_similarity_max": 0.35,
+  "flags_include": [
+    "LOW_TASK_SIMILARITY"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "action_id": "a009",
+  "content_flags": [
+    "INPUT_INCOMPLETE"
+  ],
+  "details": {
+    "authorship_signal": 0.0,
+    "chunk_index": null,
+    "chunks_scanned": 0,
+    "chunks_total": 0,
+    "corroboration": 0.0,
+    "drift_signal": 0.0,
+    "embedder_version": "sentence-transformers/all-MiniLM-L6-v2@unpinned",
+    "evidence_score": 0.0,
+    "evidence_span": null,
+    "injection_score": 0.0,
+    "missing_fields": [
+      "user_task",
+      "proposed_action_description",
+      "instruction_content"
+    ],
+    "model_version": "protectai/deberta-v3-base-prompt-injection-v2@90c9989b1a342275dd0d1a95aad283c04e075671",
+    "normalization_applied": [],
+    "source_similarity": null,
+    "thresholds_calibrated": false,
+    "thresholds_version": "2026-09-19-a"
+  },
+  "ml_confidence": 0.0,
+  "ml_label": "benign",
+  "semantic_similarity": 0.0
+}

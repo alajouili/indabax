@@ -1,0 +1,9 @@
+{
+  "ml_label_in": [
+    "suspicious",
+    "malicious"
+  ],
+  "flags_include": [
+    "ML_FLAGGED_INJECTION"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "action_id": "a003",
+  "user_task": "Summarise the email thread about the delayed shipment",
+  "proposed_action_description": "summarise the email thread about the delayed shipment",
+  "instruction_content": "Thread recap: the shipment left the depot on Tuesday and cleared customs on Friday."
+}

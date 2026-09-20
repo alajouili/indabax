@@ -1,0 +1,6 @@
+{
+  "semantic_similarity_min": 0.6,
+  "flags_exclude": [
+    "LOW_TASK_SIMILARITY"
+  ]
+}

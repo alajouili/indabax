@@ -1,0 +1,25 @@
+{
+  "action_id": "a001",
+  "content_flags": [],
+  "details": {
+    "authorship_signal": 0.0,
+    "chunk_index": 0,
+    "chunks_scanned": 1,
+    "chunks_total": 1,
+    "corroboration": 0.0,
+    "drift_signal": 0.0,
+    "embedder_version": "sentence-transformers/all-MiniLM-L6-v2@unpinned",
+    "evidence_score": 0.3732,
+    "evidence_span": "Could you confirm whether the invoice was approved for payment, and if so on what date?",
+    "injection_score": 0.0016,
+    "missing_fields": [],
+    "model_version": "protectai/deberta-v3-base-prompt-injection-v2@90c9989b1a342275dd0d1a95aad283c04e075671",
+    "normalization_applied": [],
+    "source_similarity": 0.4869,
+    "thresholds_calibrated": false,
+    "thresholds_version": "2026-09-19-a"
+  },
+  "ml_confidence": 0.0003,
+  "ml_label": "benign",
+  "semantic_similarity": 0.8641
+}

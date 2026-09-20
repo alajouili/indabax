@@ -1,0 +1,6 @@
+{
+  "flags_include": [
+    "OBFUSCATION_NORMALIZED",
+    "ML_FLAGGED_INJECTION"
+  ]
+}
