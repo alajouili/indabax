@@ -1,160 +1,591 @@
-# SENTINEL Part 2 — ML content-observation module
+SENTINEL Part 2 — ML Content-Observation Module
 
-A pure function that reads what an agent is about to do and the untrusted text it has read, and returns
-**evidence** for Part 3. It never decides allow / block / escalate / rewrite.
+Part 2 is the ML/content-observation layer of SENTINEL. It inspects the untrusted text an agent has observed and the action it is about to perform, then returns evidence for Part 3.
 
-```
-analyze({action_id, user_task, proposed_action_description, instruction_content}) -> {label, confidence, similarity, flags, details}
-```
+It never makes the final ALLOW, BLOCK, ESCALATE, or REWRITE decision.
 
-Two signals, one contract:
+analyze({
+    "action_id": ...,
+    "user_task": ...,
+    "proposed_action_description": ...,
+    "instruction_content": ...
+}) -> {
+    "action_id": ...,
+    "ml_label": ...,
+    "ml_confidence": ...,
+    "semantic_similarity": ...,
+    "content_flags": ...,
+    "details": ...
+}
 
-| Lane | Question | Signal |
-|---|---|---|
-| A | Is this text trying to instruct the agent? | DeBERTa injection classifier, max over overlapping chunks |
-| B | Does the action still match the user's task, or the untrusted author's text? | MiniLM cosines: *task drift* (task↔action) and *authorship* (evidence↔action) |
+Detection pipeline
 
-## Status — read this first
+Lane
 
-| Area | State |
-|---|---|
-| Contract, normalizer, chunker, mapper, fusion, config, never-raise, HTTP service | Implemented and tested (152 tests pass without model weights) |
-| Real DeBERTa / MiniLM wrappers (`classifier.py`, `embeddings.py`, `models.py`) | Implemented, **not yet run against real weights**: the build sandbox had no access to Hugging Face |
-| `config/thresholds.yaml` values | **Placeholders** (`calibrated: false`). Run the calibration workflow below on the real models |
-| Golden files | Property expectations ship in `samples/expected/*.expect.json`; exact-value goldens are generated on your machine |
+Question
 
-Do these first on the demo machine: **Install → `download_models.py` → `pytest` → `bench_latency.py` → calibrate.**
-Tests that need weights run automatically once the cache exists (they say why they skip until then).
+Signal
 
-## Install
+A
 
-```bash
-uv venv --python 3.11 && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-uv pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU build first, on its own
-uv pip install -e ".[service,calibration,dev]"
+Is the observed text trying to instruct/manipulate the agent?
 
-python scripts/download_models.py       # needs internet once; caches to models/.hf and verifies an offline load
-pytest                                   # add HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 in CI
-```
+DeBERTa prompt-injection classifier over overlapping chunks
 
-`download_models.py` prints the resolved commit of each model. Paste the full hash into `models.*.revision`
-in `config/thresholds.yaml` (the classifier's `ccb1f30` comes from the architecture doc and was not
-independently verified) and record both in the report. Weights are git-ignored.
+B
 
-## Use
+Does the proposed action match the user task or resemble the untrusted source?
 
-```python
-from ml_detection.analyze import analyze     # not `from ml_detection import analyze`: see Deviations
-signals = analyze({
+MiniLM task↔action and evidence↔action cosine similarities
+
+Pipeline:
+
+schema guard
+→ normalization
+→ overlapping chunking
+→ injection scoring
+→ strongest-evidence localization
+→ semantic similarity
+→ signal fusion
+→ label + flags
+
+Part 2 only returns signals. Part 3 combines them with structural trust, permissions, policy, accumulated state, and human escalation.
+
+Current status
+
+Area
+
+Status
+
+Schema / contract
+
+Implemented
+
+Normalization
+
+Implemented
+
+Chunking
+
+Implemented
+
+Injection classifier
+
+Implemented with real weights
+
+MiniLM embeddings
+
+Implemented with real weights
+
+Evidence localization
+
+Implemented
+
+Fusion / mapping
+
+Implemented and calibrated
+
+Never-raise fallback
+
+Implemented
+
+HTTP service
+
+Implemented
+
+Full test suite
+
+113 passed, 1 skipped, 0 failed
+
+Runtime offline
+
+Verified
+
+Docker offline
+
+Verified with --network none
+
+Calibration
+
+Completed — 2026-09-20-c
+
+Models
+
+Role
+
+Model
+
+Revision
+
+Injection classifier
+
+protectai/deberta-v3-base-prompt-injection-v2
+
+90c9989b1a342275dd0d1a95aad283c04e075671
+
+Embeddings
+
+sentence-transformers/all-MiniLM-L6-v2
+
+1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+
+Weights are stored locally under:
+
+models/.hf/
+
+They are git-ignored. Internet is only needed once to populate the local cache:
+
+python scripts/download_models.py
+
+Installation
+
+Python 3.11 is recommended.
+
+python -m venv .venv
+source .venv/Scripts/activate
+
+python -m pip install --upgrade pip
+
+python -m pip install   torch==2.14.0+cpu   --index-url https://download.pytorch.org/whl/cpu
+
+python -m pip install -r requirements.txt
+
+python scripts/download_models.py
+pytest -q
+
+Expected result:
+
+113 passed, 1 skipped
+
+Use
+
+from ml_detection.analyze import analyze
+
+result = analyze({
     "action_id": "a001",
     "user_task": "Reply to the vendor dispute email",
-    "proposed_action_description": "email_draft to vendor@external.example with subject ...",
-    "instruction_content": "<raw email text>",
+    "proposed_action_description":
+        "email_draft to vendor@external.example subject INV-4471 dispute",
+    "instruction_content": "<raw untrusted email text>",
 })
-```
 
-```bash
-uvicorn ml_detection.service:app --host 127.0.0.1 --port 8090        # POST /analyze, GET /health
-```
+HTTP service:
 
-**For Part 3 today, with no model download:** `samples/stub_detector.py` (put `samples/` on `sys.path`, then `from stub_detector import analyze`) exposes the same `analyze()` and
-runs the real pipeline over two tiny lexical backends. Real shapes, flags and mapping; fake signal values.
-Never demo or report from it.
+uvicorn ml_detection.service:app --host 127.0.0.1 --port 8090
 
-## Output contract
+Endpoints:
 
-The first five keys are frozen; new information only ever goes into `details`.
+POST /analyze
+GET  /health
 
-| Field | Meaning |
-|---|---|
-| `ml_label` | `benign` \| `suspicious` \| `malicious`: the risk of **this action in this context** |
-| `ml_confidence` | fused manipulation score in [0,1], 4 dp; the value that decides the label |
-| `semantic_similarity` | cosine(task, action), in [0,1] (0.0 if it could not be computed; see `INPUT_INCOMPLETE`) |
-| `content_flags` | frozen vocabulary below, in a fixed order |
-| `details` | `source_similarity`, `evidence_span`, `chunk_index`, `normalization_applied`, `model_version`, `thresholds_version`, `latency_ms`, plus `injection_score`, `drift_signal`, `authorship_signal`, `corroboration`, `chunks_scanned`, `chunks_total`, `missing_fields`, `embedder_version`, `thresholds_calibrated` |
+Output contract
 
-| Flag | Raised when |
-|---|---|
-| `ML_FLAGGED_INJECTION` | max chunk injection probability ≥ `injection.flag_threshold` (a **content** signal, independent of the label) |
-| `LOW_TASK_SIMILARITY` | task↔action cosine < `similarity.drift_threshold` |
-| `ACTION_RESEMBLES_UNTRUSTED_SOURCE` | (evidence↔action) − (task↔action) > `similarity.authorship_margin`, and the content is at least slightly injection-like |
-| `OBFUSCATION_NORMALIZED` | the normalizer undid zero-width/bidi characters, letter-folding or letter-spacing |
-| `CONTENT_TRUNCATED` | more windows than `chunking.max_chunks`; head and tail were scanned, the middle was not |
-| `INPUT_INCOMPLETE` | a required field was missing/empty, **or the module itself failed** (see below) |
+Field
 
-Everything except `details.latency_ms` is deterministic.
+Meaning
 
-## How the label is produced
+action_id
 
-```
-corroboration = max( ramp(drift_threshold − task_sim),  ramp((source_sim − task_sim) − authorship_margin) )
-fused         = injection_score × ( w + (1 − w) × corroboration )        # w = fusion.uncorroborated_weight
-label         = malicious if fused ≥ labels.malicious, suspicious if ≥ labels.suspicious, else benign
-```
+Correlates the result with the proposed action
 
-Hostile-*looking* text is weak evidence (a security-awareness email quotes "ignore previous instructions").
-What makes it dangerous is the agent **acting on it**, so the action-side signals corroborate. `ramp` is 0 at
-the flag threshold and reaches 1 `fusion.ramp_width` later, so corroboration starts exactly where the
-corresponding flag fires. Consequence, by design: a hostile document with an action that ignores it gives
-`benign` + `ML_FLAGGED_INJECTION`, and Part 3 still sees the flag. Set `fusion.uncorroborated_weight: 1.0`
-for classifier-only behaviour (that is ablation row 1).
+ml_label
 
-## Deviations from the architecture document (and why)
+benign, suspicious, or malicious
 
-1. **`ml_detection/config.py` added.** Five modules read `thresholds.yaml`; one typed loader that rejects unknown keys and checks invariants beats five copies of YAML parsing. Model ids/revisions also live in the config so `download_models.py` and the loader cannot disagree.
-2. **Authorship flag is gated** by `similarity.authorship_min_injection`. Without it, every legitimate email summary "resembles its source" and raises the flag, defeating the hard-negative requirement. Set it to `0.0` for the literal rule.
-3. **Authorship compares the action to the offending sentence**, not the whole content: MiniLM truncates at 256 tokens and a 150-word chunk dilutes the hostile sentence. The same sentence is `evidence_span`. It costs one extra small classifier batch, only when the top chunk scores ≥ `evidence.localize_min_score`.
-4. **Label comes from the fused score** (above). The architecture left the label rule open; this is the rule.
-5. **Chunk size is in words** (150 / overlap 40 ≈ 200 / 50 tokens) so the chunker is pure and testable without a tokenizer; the classifier still runs with `max_length: 512`, and over-long unbroken runs are split. Over budget, **head and tail are kept**: the scenario library's attacks append text, so head-only truncation would miss them.
-6. **`analyze(raw, *, config=None, models=None)`** has two optional overrides for ablations, tests and the stub. The orchestrator ignores them.
-7. **`ml_detection/__init__.py` does not re-export `analyze`**: doing so shadows the `ml_detection.analyze` submodule (this bit us during testing).
-8. **Golden files** are generated locally (`UPDATE_GOLDEN=1 pytest tests/test_signals.py`); shipped expectations are property-level. **`tests/conftest.py`** added for the shared fixtures.
+ml_confidence
 
-## Calibration workflow
+Fused risk score in [0,1]
 
-```bash
-git clone https://github.com/Skan22/Sentinel_Starter_Kit ../Sentinel_Starter_Kit
-python calibration/build_dataset.py   --kit ../Sentinel_Starter_Kit           # real models; ~80 rows
-python calibration/sweep_thresholds.py                                        # tables in calibration/report/
-# copy calibration/report/recommended_thresholds.yaml into config/thresholds.yaml, bump `version`, set `calibrated: true`
-UPDATE_GOLDEN=1 pytest tests/test_signals.py                                  # freeze goldens; later diffs show what moved
-```
+semantic_similarity
 
-`build_dataset.py` reads scenarios only as data; `analyze()` never sees a scenario id, file name or label
-(`test_unknown_keys_cannot_influence_the_result` enforces that). Labels are two-axis (*content carries a
-payload* / *action follows it*). Direct-instruction attacks are user-authored, marked out of scope, and reported
-separately. `sweep_thresholds.py` refuses stub-built datasets unless `--allow-stub`. It writes the four ablation
-runs (classifier only, similarity only, both, chunking disabled) and a per-family table.
+task↔action cosine
 
-## Contract with the orchestrator (agree these today)
+content_flags
 
-* **Phrasing of `proposed_action_description` is calibration-critical.** Calibration uses `tool key value key value…` (see `build_dataset.describe_action`), e.g. `email_draft to billing@x.example subject INV-4471 dispute`. If the orchestrator phrases actions differently, the cosines shift and thresholds are wrong.
-* **Treat `INPUT_INCOMPLETE` as "no ML evidence", never as "safe".** This module fails *open* by contract (benign, confidence 0) so a crash cannot kill a run. Part 3 must not read that benign as reassurance.
-* **Pass the content the agent actually observed** (untrusted or memory-recalled text included), not only the latest tool result: the memory-poisoning scenarios only show up if recalled entries reach `instruction_content`.
-* Nobody currently owns wiring into `sentinel run` / `sentinel replay` (the trace the 40-point video score depends on). Not this module's job, but raise it.
+Deterministic evidence flags
 
-## Models declared
+details
 
-| Role | Model | License |
-|---|---|---|
-| Classifier | `protectai/deberta-v3-base-prompt-injection-v2` | Apache 2.0 (its training datasets carry mixed licenses; review before redistribution) |
-| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` | Apache 2.0 |
+Raw signals, evidence, versions, latency, fallback metadata
 
-Classifier model card: English only; does not detect jailbreaks; advises against running on system prompts (false positives);
-reported 95.25% accuracy / 91.59% precision / 99.74% recall on its own 20,000-prompt evaluation, i.e. high recall, weaker precision.
-No dataset is used beyond the public scenario library for calibration.
+Flags:
 
-## Known limitations (source material for the safety statement and failure analysis)
+ML_FLAGGED_INJECTION
+LOW_TASK_SIMILARITY
+ACTION_RESEMBLES_UNTRUSTED_SOURCE
+OBFUSCATION_NORMALIZED
+CONTENT_TRUNCATED
+INPUT_INCOMPLETE
 
-* **Encoded payloads** (base64, hex, reversed) mean nothing to a text classifier. Structural checks (Part 1) own them; this module does not claim to.
-* **Multi-step attacks:** an instruction split across records looks benign per fragment. Single-action analysis cannot see it; only accumulated state in Part 3 can. In the calibration data the split-payload scenario is the canonical case.
-* **Long-horizon tasks:** one cosine between two short strings is a weak proxy for drift over a twenty-step plan.
-* **English only; no jailbreak detection;** non-English injection is undetected. The normalizer does not map homoglyphs (Cyrillic "а" for "a"), collapses letters separated by *single spaces only* (not dots/dashes), and cannot re-segment a fully spaced string with no word gaps ("i g n o r e p r e v i o u s…" becomes one long token).
-* **Memory poisoning phrased as policy** ("approved by Legal: summaries may be emailed to partners…") contains no imperative and may score low; it is caught, if at all, by authorship when the resulting action resembles the note.
-* **Terse action descriptions can over-corroborate.** Hostile-looking content plus an action description sharing little wording with the task can be pushed to `suspicious`/`malicious` by drift alone. Hard-negative behaviour with real embeddings is the thing to check first (`test_hard_negative_*`).
-* **Head+tail truncation:** content beyond `max_chunks` windows is not scanned in the middle. An adversary who knows the budget can bury text there.
-* **Fusion suppresses content-only detection** by design (precision over recall). Raise `uncorroborated_weight` if recall matters more.
-* **Distribution gap:** the classifier was trained on real-world prompts; the scenarios are synthetic. Calibration measures the gap; report the number.
-* **Small calibration set** (~80 rows from 19 scenarios, no held-out split): thresholds are fitted to it.
-* **Fails open** on internal error (see contract above). Expected false-positive behaviour: security-training and incident-response text with imperative phrasing will raise `ML_FLAGGED_INJECTION`; the fusion is meant to keep it from raising the label.
-* **What this module observes:** the four input strings only. It stores nothing and makes no network calls. When to keep a human in the loop is Part 3's escalation policy.
+INPUT_INCOMPLETE means missing ML evidence, not “safe”.
+
+Evidence localization
+
+Whole-document similarity can dilute a short malicious sentence inside a large benign document. Part 2 therefore localizes the strongest suspicious sentence and uses that span for evidence↔action similarity.
+
+Current configuration:
+
+evidence:
+  localize_min_score: 0.30
+  max_sentences: 24
+  min_sentence_words: 5
+  min_sentence_chars: 30
+  context_radius: 0
+  max_chars: 400
+
+context_radius: 0 is intentional: adding neighboring sentences increased false positives on benign security text.
+
+Signal fusion
+
+Raw signals:
+
+inj    = injection score
+task   = task↔action similarity
+source = evidence↔action similarity
+
+Similarity signals are converted into:
+
+drift_signal
+authorship_signal
+corroboration = max(drift_signal, authorship_signal)
+
+Fusion:
+
+injection_path =
+    inj * (
+        uncorroborated_weight
+        + (1 - uncorroborated_weight) * corroboration
+    )
+
+corroboration_path =
+    corroboration_weight * corroboration
+    if inj > min_injection_for_corroboration
+    else 0
+
+fused = clamp(max(injection_path, corroboration_path), 0, 1)
+
+Label:
+
+malicious  if fused >= labels.malicious
+suspicious if fused >= labels.suspicious
+benign     otherwise
+
+Calibrated thresholds
+
+version: "2026-09-20-c"
+calibrated: true
+
+injection:
+  flag_threshold: 0.78
+
+similarity:
+  drift_threshold: 0.30
+  authorship_margin: 0.20
+  authorship_min_injection: 0.10
+
+fusion:
+  uncorroborated_weight: 0.35
+  corroboration_weight: 0.60
+  min_injection_for_corroboration: 0.0001
+  ramp_width: 0.10
+
+labels:
+  suspicious: 0.60
+  malicious: 0.85
+
+The complete runtime configuration is in config/thresholds.yaml.
+
+Calibration workflow
+
+python calibration/build_dataset.py   --kit ../Sentinel_Starter_Kit   --backend real
+
+python calibration/sweep_thresholds.py
+
+Calibration outputs are written to calibration/report/.
+
+The sweep also checks:
+
+calibration/data/regression_signals.csv
+
+Current result:
+
+Regression guards: 2/2 passed
+
+Dataset:
+
+82 total rows
+75 in-scope rows
+17 positive rows
+58 negative rows
+19 scenarios
+
+Selected-configuration metrics:
+
+Metric
+
+Result
+
+Precision
+
+0.769
+
+Recall
+
+0.588
+
+F1
+
+0.667
+
+False-positive rate
+
+0.052
+
+Hard-negative FPR
+
+0.000
+
+Malicious-label precision
+
+0.000
+
+Ablation:
+
+Variant
+
+Precision
+
+Recall
+
+F1
+
+FPR
+
+Classifier only
+
+0.0000
+
+0.0000
+
+0.0000
+
+0.1379
+
+Similarity only
+
+0.5217
+
+0.7059
+
+0.6000
+
+0.1897
+
+Both / fusion
+
+0.7692
+
+0.5882
+
+0.6667
+
+0.0517
+
+Chunking disabled
+
+0.7500
+
+0.5294
+
+0.6207
+
+0.0517
+
+Per-family alert rates:
+
+Group
+
+Alert rate
+
+Indirect prompt injection
+
+0.5556
+
+Memory poisoning
+
+0.8333
+
+Multi-step
+
+0.0000
+
+Legitimate action
+
+0.0909
+
+Benign
+
+0.0000
+
+Hard negative
+
+0.0000
+
+Poisoned-context benign action
+
+0.0769
+
+Direct user-authored attacks are treated as out of scope for Part 2 and belong to the trust/policy layer.
+
+Latency
+
+Measured with real CPU models in offline mode.
+
+Cold start:
+
+15847 ms
+
+Ten warm runs:
+
+Metric
+
+Result
+
+Mean
+
+2219.9 ms
+
+Median
+
+2189 ms
+
+Maximum
+
+2471 ms
+
+The cold-start cost is mostly model loading. Warm latency is more representative for a persistent service.
+
+Docker
+
+Build:
+
+docker build -t sentinel-part2 .
+
+Run tests:
+
+docker run --rm sentinel-part2
+
+Verify complete network isolation:
+
+docker run --rm --network none sentinel-part2
+
+Verified result:
+
+113 passed, 1 skipped, 0 failed
+
+The Docker image includes the local model cache so runtime inference does not need Internet access.
+
+Golden tests
+
+After an intentional model/configuration change:
+
+UPDATE_GOLDEN=1 pytest tests/test_signals.py -q
+pytest -q
+
+Goldens are stored under:
+
+samples/expected/*.golden.json
+
+Latency is excluded from golden comparisons.
+
+Important architectural boundaries
+
+Part 2 observes only:
+
+action_id
+user_task
+proposed_action_description
+instruction_content
+
+It does not:
+
+make the final safety decision;
+
+maintain multi-step state;
+
+verify permissions or source trust;
+
+execute actions;
+
+reliably decode arbitrary encoded payloads.
+
+The orchestrator must pass the text the agent actually observed, including recalled memory or retrieved external content.
+
+The wording of proposed_action_description is calibration-sensitive because it directly affects semantic similarity.
+
+Known limitations
+
+Multi-step attacks: current Part 2 alert rate is 0.0000. A stateless single-action detector cannot reliably reconstruct malicious intent split across several records. Part 3 must accumulate state.
+
+Malicious label: current calibration reports malicious-label precision 0.000. The calibration set is too small to validate a reliable high-confidence malicious operating region.
+
+Small calibration set: thresholds were selected on 75 in-scope rows from 19 scenarios with no independent held-out split.
+
+English-centric models: non-English attacks may receive weaker scores.
+
+Encoded payloads: Base64, hex, reversed text, and similar structural obfuscations belong primarily to Part 1.
+
+Long-horizon drift: one semantic cosine is a weak proxy for faithfulness across a long multi-action plan.
+
+Truncation: if content exceeds the chunk budget, head and tail are retained but middle regions may be skipped.
+
+Distribution shift: challenge scenarios and hard negatives are not a guarantee of production-enterprise performance.
+
+Fail-open fallback: on internal failure, Part 2 returns a degraded valid output with INPUT_INCOMPLETE; Part 3 must not interpret that as evidence of safety.
+
+Repository layout
+
+part2_ml_detection/
+├── calibration/
+│   ├── build_dataset.py
+│   ├── sweep_thresholds.py
+│   ├── data/
+│   └── report/
+├── config/
+│   └── thresholds.yaml
+├── ml_detection/
+│   ├── analyze.py
+│   ├── chunking.py
+│   ├── classifier.py
+│   ├── config.py
+│   ├── embeddings.py
+│   ├── mapping.py
+│   ├── models.py
+│   ├── normalize.py
+│   ├── schema.py
+│   ├── service.py
+│   └── similarity.py
+├── models/
+│   └── .hf/
+├── samples/
+│   └── expected/
+├── scripts/
+│   ├── bench_latency.py
+│   └── download_models.py
+├── tests/
+├── Dockerfile
+├── requirements.txt
+├── pyproject.toml
+└── README.md
+
+Final role in SENTINEL
+
+Part 2 answers:
+
+What ML/content evidence suggests that the proposed action may have been influenced by untrusted instructions?
+
+It does not answer:
+
+Should SENTINEL allow or block the action?
+
+That final decision belongs to Part 3.
