@@ -1,0 +1,14 @@
+{
+  "action_id": "mixed-001",
+  "trust_level": "TRUSTED_USER",
+  "permission_ok": true,
+  "structural_flags": [],
+  "ml_label": "suspicious",
+  "ml_confidence": 0.35,
+  "semantic_similarity": 0.10,
+  "content_flags": ["LOW_TASK_SIMILARITY"],
+  "action": {
+    "tool": "send_email",
+    "params": {"to": "vendor@external.example", "body": "Draft response"}
+  }
+}
