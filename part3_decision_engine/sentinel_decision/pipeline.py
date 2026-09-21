@@ -135,6 +135,19 @@ class DecisionPipeline:
             )
             response = self.approver.review(case)
             verdict.human_response = response
+
+            if response is HumanResponse.PENDING:
+                verdict.executed = False
+
+                self.state.record(
+                    verdict,
+                    ActionLifecycle.ESCALATED,
+                )
+
+                self._log(raw, verdict)
+                return verdict
+
+            
             if response is not HumanResponse.APPROVED:
                 verdict.executed = False
                 verdict.reason_codes = list(dict.fromkeys(verdict.reason_codes + ["HUMAN_DENIED"]))

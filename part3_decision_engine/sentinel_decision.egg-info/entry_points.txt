@@ -1,0 +1,2 @@
+[console_scripts]
+sentinel-decision = sentinel_decision.cli:main

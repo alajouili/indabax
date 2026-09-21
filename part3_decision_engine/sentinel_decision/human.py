@@ -41,3 +41,12 @@ class DenyAllApprover:
 class ApproveAllApprover:
     def review(self, case: HumanCase) -> HumanResponse:
         return HumanResponse.APPROVED
+class PendingApprover:
+    """Used by the web dashboard.
+
+    It does not approve or deny immediately.
+    It leaves the action waiting for human review.
+    """
+
+    def review(self, case: HumanCase) -> HumanResponse:
+        return HumanResponse.PENDING

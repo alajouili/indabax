@@ -22,6 +22,7 @@ class Outcome(str, Enum):
 
 class HumanResponse(str, Enum):
     NOT_REQUIRED = "NOT_REQUIRED"
+    PENDING = "PENDING"
     APPROVED = "APPROVED"
     DENIED = "DENIED"
     TIMEOUT = "TIMEOUT"
