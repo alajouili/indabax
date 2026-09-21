@@ -8,11 +8,24 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
+  Cell,
 } from "recharts";
 
 import "./App.css";
 
 const API = "http://127.0.0.1:8000";
+
+// Visual-only constants (colors used by the charts)
+const OUTCOME_COLORS = ["#34d399", "#38bdf8", "#fbbf24", "#fb7185"];
+const TOOLTIP_STYLE = {
+  background: "rgba(15, 23, 42, 0.92)",
+  border: "1px solid rgba(148, 163, 184, 0.25)",
+  borderRadius: 12,
+  color: "#e2e8f0",
+  boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
+  fontSize: 13,
+};
 
 function App() {
   const [stats, setStats] = useState(null);
@@ -153,8 +166,8 @@ function App() {
   }
   if (error) {
     return (
-      <div className="page">
-        <h1>SENTINEL</h1>
+      <div className="page page-center">
+        <h1 className="brand-title">SENTINEL</h1>
         <p className="error">
           Backend error: {error}
         </p>
@@ -164,9 +177,9 @@ function App() {
 
   if (!stats) {
     return (
-      <div className="page">
-        <h1>SENTINEL</h1>
-        <p>Loading dashboard...</p>
+      <div className="page page-center">
+        <h1 className="brand-title">SENTINEL</h1>
+        <p className="loading-text">Loading dashboard...</p>
       </div>
     );
   }
@@ -262,9 +275,12 @@ function App() {
       {/* HEADER */}
 
       <header className="header">
-        <div>
-          <h1>SENTINEL</h1>
-          <p>AI Agent Security Dashboard</p>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">🛡</span>
+          <div>
+            <h1 className="brand-title">SENTINEL</h1>
+            <p>AI Agent Security Dashboard</p>
+          </div>
         </div>
 
         <div className="system-status-container">
@@ -293,7 +309,7 @@ function App() {
       </header>
       <section className="demo-panel">
 
-        <div>
+        <div className="demo-intro">
           <h2>Demo Scenarios</h2>
           <p>
             Run predefined SENTINEL security scenarios
@@ -340,7 +356,7 @@ function App() {
 
       <section className="cards">
 
-        <div className="card">
+        <div className="card total">
           <span>Total Actions</span>
           <strong>{stats.total}</strong>
         </div>
@@ -360,13 +376,16 @@ function App() {
           <strong>{stats.block}</strong>
         </div>
 
-        <div className="card">
+        <div className="card average">
           <span>Average Risk</span>
           <strong>{stats.average_risk}</strong>
         </div>
 
       </section>
 
+      {/* CHARTS */}
+
+      <div className="charts-grid">
 
       {/* DECISION DISTRIBUTION */}
 
@@ -381,16 +400,32 @@ function App() {
           >
             <BarChart data={chartData}>
 
-              <XAxis dataKey="name" />
+              <CartesianGrid
+                strokeDasharray="3 6"
+                vertical={false}
+                stroke="rgba(148,163,184,0.18)"
+              />
 
-              <YAxis allowDecimals={false} />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} />
 
-              <Tooltip />
+              <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                cursor={{ fill: "rgba(129,140,248,0.08)" }}
+              />
 
               <Bar
                 dataKey="value"
-                radius={[6, 6, 0, 0]}
-              />
+                radius={[8, 8, 0, 0]}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={entry.name}
+                    fill={OUTCOME_COLORS[index]}
+                  />
+                ))}
+              </Bar>
 
             </BarChart>
           </ResponsiveContainer>
@@ -416,16 +451,27 @@ function App() {
 
             <LineChart data={timelineData}>
 
+              <CartesianGrid
+                strokeDasharray="3 6"
+                vertical={false}
+                stroke="rgba(148,163,184,0.18)"
+              />
+
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
               />
 
               <YAxis
                 domain={[0, 100]}
+                axisLine={false}
+                tickLine={false}
               />
 
               <Tooltip
+                contentStyle={TOOLTIP_STYLE}
                 formatter={(value) => [
                   `${value}/100`,
                   "Risk Score",
@@ -436,6 +482,9 @@ function App() {
                 type="monotone"
                 dataKey="risk"
                 strokeWidth={3}
+                stroke="#a78bfa"
+                dot={{ r: 4, fill: "#a78bfa", strokeWidth: 0 }}
+                activeDot={{ r: 7, fill: "#c4b5fd", strokeWidth: 0 }}
               />
 
             </LineChart>
@@ -445,6 +494,8 @@ function App() {
         </div>
 
       </section>
+
+      </div>
 
       {/* HUMAN REVIEW */}
 
