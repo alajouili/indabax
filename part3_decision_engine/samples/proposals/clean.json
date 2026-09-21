@@ -1,0 +1,14 @@
+{
+  "action_id": "clean-001",
+  "trust_level": "TRUSTED_INTERNAL",
+  "permission_ok": true,
+  "structural_flags": [],
+  "ml_label": "benign",
+  "ml_confidence": 0.03,
+  "semantic_similarity": 0.93,
+  "content_flags": [],
+  "action": {
+    "tool": "summarize",
+    "params": {"thread_id": "t-42"}
+  }
+}

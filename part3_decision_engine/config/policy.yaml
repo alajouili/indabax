@@ -1,0 +1,112 @@
+version: "2026-09-21-a"
+
+weights:
+  permission_denied: 35
+  ml_confidence: 25
+  semantic_drift: 15
+  action_impact: 10
+  session_history: 10
+
+trust_points:
+  TRUSTED_INTERNAL: 0
+  TRUSTED_USER: 3
+  UNTRUSTED_EXTERNAL: 15
+  UNKNOWN: 12
+
+structural_flag_points:
+  ENCODED_CONTENT_DETECTED: 12
+  IMPERATIVE_IN_NON_INSTRUCTION_FIELD: 15
+  SOURCE_MISMATCH: 12
+  UNKNOWN_STRUCTURAL_FLAG: 6
+
+content_flag_points:
+  ML_FLAGGED_INJECTION: 15
+  LOW_TASK_SIMILARITY: 10
+  ACTION_RESEMBLES_UNTRUSTED_SOURCE: 15
+  OBFUSCATION_NORMALIZED: 5
+  CONTENT_TRUNCATED: 5
+  INPUT_INCOMPLETE: 12
+  UNKNOWN_CONTENT_FLAG: 4
+
+caps:
+  structural_flags: 25
+  content_flags: 25
+  total: 100
+
+similarity:
+  safe_similarity: 0.70
+  critical_similarity: 0.20
+
+thresholds:
+  rewrite: 30
+  escalate: 50
+  block: 80
+
+overrides:
+  permission_denied_minimum: ESCALATE
+  input_incomplete_minimum: ESCALATE
+  critical_structural_flags:
+    CREDENTIAL_EXFILTRATION: BLOCK
+    DESTRUCTIVE_ACTION_REQUEST: BLOCK
+  critical_content_flags:
+    CONFIRMED_EXFILTRATION: BLOCK
+  high_ml_confidence: 0.90
+  high_ml_with_untrusted_minimum: ESCALATE
+  very_low_similarity_minimum: ESCALATE
+
+rewrite:
+  enabled: true
+  redact_param_keys:
+    - password
+    - token
+    - secret
+    - api_key
+    - credential
+  external_recipient_keys:
+    - to
+    - recipient
+    - destination
+  safe_placeholder: "[REDACTED_BY_SENTINEL]"
+  requirements:
+    - "Remove secrets or credentials from the proposed action."
+    - "Re-evaluate the rewritten action before execution."
+
+human:
+  default_mode: cli
+  timeout_seconds: 60
+  timeout_response: DENIED
+
+logging:
+  path: logs/trace.jsonl
+  hash_chain: true
+
+  redact_param_keys:
+    - password
+    - token
+    - secret
+    - api_key
+    - credential
+
+  safe_placeholder: "[REDACTED_BY_SENTINEL]"
+
+state:
+  max_history: 100
+  suspicious_event_points: 5
+  max_session_points: 15
+
+categories:
+  external_communication:
+    tools: [send_email, email_draft, post_message, send_message]
+    impact: 20
+  financial:
+    tools: [transfer_money, create_payment, refund_payment]
+    impact: 50
+  destructive:
+    tools: [delete_file, delete_record, drop_table, revoke_account]
+    impact: 45
+  privileged:
+    tools: [create_user, change_permissions, rotate_secret]
+    impact: 35
+  read_only:
+    tools: [read_file, search, summarize, list_items]
+    impact: 0
