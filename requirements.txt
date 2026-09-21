@@ -1,0 +1,8 @@
+transformers==5.17.0
+sentence-transformers==6.1.0
+pydantic==2.13.5
+PyYAML==6.0.3
+numpy==2.4.6
+pandas==3.0.6
+pytest==9.1.1
+tabulate==0.10.0

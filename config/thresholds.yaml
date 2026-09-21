@@ -18,9 +18,9 @@ models:
     batch_size: 8
   embedder:
     id: sentence-transformers/all-MiniLM-L6-v2
-    revision: null               # pin after download_models.py prints the resolved hash
+    revision: "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"              # pin after download_models.py prints the resolved hash
     batch_size: 8
-  hf_home: "C:/Users/TUF GAMING/.cache/huggingface"          # relative to the module root; overridden by an existing HF_HOME
+  hf_home: "models/.hf"         # relative to the module root; overridden by an existing HF_HOME
   num_threads: 1                 # fixed for determinism (requirement F5)
 
 normalization:

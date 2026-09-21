@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+# Hugging Face local model cache
+models/.hf/

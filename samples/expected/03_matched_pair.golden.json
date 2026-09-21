@@ -8,7 +8,7 @@
     "chunks_total": 1,
     "corroboration": 0.0,
     "drift_signal": 0.0,
-    "embedder_version": "sentence-transformers/all-MiniLM-L6-v2@unpinned",
+    "embedder_version": "sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
     "evidence_score": 0.0,
     "evidence_span": null,
     "injection_score": 0.0,
@@ -17,7 +17,7 @@
     "normalization_applied": [],
     "source_similarity": 0.4581,
     "thresholds_calibrated": true,
-    "thresholds_version": "2026-09-20-b"
+    "thresholds_version": "2026-09-20-c"
   },
   "ml_confidence": 0.0,
   "ml_label": "benign",
