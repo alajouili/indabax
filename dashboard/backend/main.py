@@ -293,7 +293,60 @@ def evaluate(
         )
 
     return result
+DEMO_SCENARIOS = {
+    "safe": PART3_ROOT / "samples" / "proposals" / "clean.json",
+    "suspicious": PART3_ROOT / "samples" / "proposals" / "mixed.json",
+    "malicious": PART3_ROOT / "samples" / "proposals" / "bad.json",
+}
 
+
+@app.post("/api/demo/{scenario}")
+def run_demo_scenario(scenario: str):
+    scenario = scenario.lower()
+
+    path = DEMO_SCENARIOS.get(scenario)
+
+    if path is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Unknown demo scenario",
+        )
+
+    if not path.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Scenario file not found: {path.name}",
+        )
+
+    proposal = json.loads(
+        path.read_text(encoding="utf-8")
+    )
+
+    pipeline = create_pipeline(
+        PendingApprover()
+    )
+
+    verdict = pipeline.run(proposal)
+
+    result = verdict.model_dump(
+        mode="json"
+    )
+
+    if (
+        verdict.outcome.value == "ESCALATE"
+        and verdict.human_response
+        is HumanResponse.PENDING
+    ):
+        review_store.add(
+            verdict.action_id,
+            proposal,
+            result,
+        )
+
+    return {
+        "scenario": scenario,
+        "verdict": result,
+    }
 
 @app.get("/api/reviews")
 def reviews():

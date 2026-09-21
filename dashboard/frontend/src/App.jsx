@@ -23,7 +23,8 @@ function App() {
   const [integrity, setIntegrity] = useState(null)
   const [search, setSearch] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("ALL");
-
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoMessage, setDemoMessage] = useState("");
   useEffect(() => {
     async function loadDashboard() {
       try {
@@ -122,7 +123,34 @@ function App() {
       setError(err.message);
     }
   }
+  async function runDemo(scenario) {
+    try {
+      setDemoLoading(true);
+      setDemoMessage("");
 
+      const response = await fetch(
+        `${API}/api/demo/${scenario}`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Demo execution failed");
+      }
+
+      const data = await response.json();
+
+      setDemoMessage(
+        `${scenario.toUpperCase()} → ${data.verdict.outcome}`
+      );
+
+    } catch (err) {
+      setDemoMessage(`Error: ${err.message}`);
+    } finally {
+      setDemoLoading(false);
+    }
+  }
   if (error) {
     return (
       <div className="page">
@@ -263,7 +291,50 @@ function App() {
           
         </div>
       </header>
+      <section className="demo-panel">
 
+        <div>
+          <h2>Demo Scenarios</h2>
+          <p>
+            Run predefined SENTINEL security scenarios
+          </p>
+        </div>
+
+        <div className="demo-buttons">
+
+          <button
+            className="demo-safe"
+            disabled={demoLoading}
+            onClick={() => runDemo("safe")}
+          >
+            ▶ Safe Demo
+          </button>
+
+          <button
+            className="demo-suspicious"
+            disabled={demoLoading}
+            onClick={() => runDemo("suspicious")}
+          >
+            ⚠ Suspicious Demo
+          </button>
+
+          <button
+            className="demo-malicious"
+            disabled={demoLoading}
+            onClick={() => runDemo("malicious")}
+          >
+            ⛔ Attack Demo
+          </button>
+
+        </div>
+
+        {demoMessage && (
+          <div className="demo-result">
+            {demoMessage}
+          </div>
+        )}
+
+      </section>
 
       {/* STATISTICS */}
 
@@ -807,7 +878,133 @@ function App() {
 
           </div>
 
+          <div className="pipeline-view">
 
+            <div className="pipeline-box">
+
+              <span className="pipeline-part">
+                PART 1
+              </span>
+
+              <h3>
+                Structural Verification
+              </h3>
+
+              <p>
+                Trust Level:
+                <strong>
+                  {" "}
+                  {selectedDecision.trust_level || "-"}
+                </strong>
+              </p>
+
+              <p>
+                Permission:
+                <strong>
+                  {" "}
+                  {selectedDecision.permission_ok === true
+                    ? "ALLOWED"
+                    : selectedDecision.permission_ok === false
+                      ? "DENIED"
+                      : "-"}
+                </strong>
+              </p>
+
+              <p>
+                Flags:
+                <strong>
+                  {" "}
+                  {selectedDecision.structural_flags?.length || 0}
+                </strong>
+              </p>
+
+            </div>
+
+
+            <div className="pipeline-arrow">
+              →
+            </div>
+
+
+            <div className="pipeline-box">
+
+              <span className="pipeline-part">
+                PART 2
+              </span>
+
+              <h3>
+                ML Detection
+              </h3>
+
+              <p>
+                ML Confidence:
+                <strong>
+                  {" "}
+                  {selectedDecision.ml_confidence ?? "-"}
+                </strong>
+              </p>
+
+              <p>
+                Similarity:
+                <strong>
+                  {" "}
+                  {selectedDecision.semantic_similarity ?? "-"}
+                </strong>
+              </p>
+
+              <p>
+                Flags:
+                <strong>
+                  {" "}
+                  {selectedDecision.content_flags?.length || 0}
+                </strong>
+              </p>
+
+            </div>
+
+
+            <div className="pipeline-arrow">
+              →
+            </div>
+
+
+            <div className="pipeline-box">
+
+              <span className="pipeline-part">
+                PART 3
+              </span>
+
+              <h3>
+                Decision Engine
+              </h3>
+
+              <p>
+                Risk:
+                <strong>
+                  {" "}
+                  {selectedDecision.risk_score}/100
+                </strong>
+              </p>
+
+              <p>
+                Outcome:
+                <strong>
+                  {" "}
+                  {selectedDecision.outcome}
+                </strong>
+              </p>
+
+              <p>
+                Human:
+                <strong>
+                  {" "}
+                  {selectedDecision.human_response || "-"}
+                </strong>
+              </p>
+
+            </div>
+
+          </div>
           <h3>
             Structural Flags
           </h3>
