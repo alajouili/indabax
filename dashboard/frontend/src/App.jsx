@@ -926,7 +926,15 @@ function App() {
               </strong>
 
             </div>
+            <div>
+              <span>
+                Executed
+              </span>
 
+              <strong>
+                {selectedDecision.executed ? "YES" : "NO"}
+              </strong>
+            </div>
           </div>
 
           <div className="pipeline-view">

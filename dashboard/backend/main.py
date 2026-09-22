@@ -168,22 +168,15 @@ app.add_middleware(
 # PIPELINE FACTORY
 # ============================================================
 
-def create_pipeline(approver):
-    """
-    Create the complete SENTINEL pipeline:
-
-    Part 1
-        ↓
-    Part 2
-        ↓
-    Part 3
-    """
-
+def create_pipeline(
+    approver,
+    pipeline_state=None,
+):
     return DecisionPipeline(
         policy,
         approver=approver,
         trace_log=trace_log,
-        state=state,
+        state=pipeline_state or state,
         part1_provider=part1_provider,
         part2_provider=part2_provider,
     )
@@ -550,22 +543,21 @@ DEMO_SCENARIOS = {
     "safe":
         PART3_ROOT
         / "samples"
-        / "proposals"
-        / "clean.json",
+        / "raw_proposals"
+        / "safe.json",
 
     "suspicious":
         PART3_ROOT
         / "samples"
-        / "proposals"
-        / "mixed.json",
+        / "raw_proposals"
+        / "suspicious.json",
 
     "malicious":
         PART3_ROOT
         / "samples"
-        / "proposals"
-        / "bad.json",
+        / "raw_proposals"
+        / "malicious.json",
 }
-
 
 @app.post("/api/demo/{scenario}")
 def run_demo_scenario(
@@ -600,7 +592,8 @@ def run_demo_scenario(
     )
 
     pipeline = create_pipeline(
-        PendingApprover()
+        PendingApprover(),
+        pipeline_state=DecisionState.from_policy(policy),
     )
 
     verdict = pipeline.run(
