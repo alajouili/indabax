@@ -1,0 +1,45 @@
+FROM python:3.11-slim-bookworm
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Part 2 offline configuration
+ENV HF_HOME=/app/part2_ml_detection/models/.hf
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+
+# Upgrade pip
+RUN python -m pip install --no-cache-dir --upgrade pip
+
+# CPU PyTorch
+RUN python -m pip install --no-cache-dir \
+    torch==2.14.0+cpu \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Part 2 requirements
+COPY part2_ml_detection/requirements.txt /app/part2_ml_detection/requirements.txt
+
+RUN python -m pip install --no-cache-dir \
+    -r /app/part2_ml_detection/requirements.txt
+
+# Copy SENTINEL
+COPY part1_verifier /app/part1_verifier
+COPY part2_ml_detection /app/part2_ml_detection
+COPY part3_decision_engine /app/part3_decision_engine
+COPY dashboard/backend /app/dashboard/backend
+
+# Install Part 1 and Part 3
+RUN python -m pip install --no-cache-dir \
+    -e /app/part1_verifier \
+    -e /app/part3_decision_engine
+
+# Dashboard backend
+RUN python -m pip install --no-cache-dir fastapi uvicorn
+
+ENV PYTHONPATH=/app/part1_verifier:/app/part2_ml_detection:/app/part3_decision_engine
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "dashboard.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

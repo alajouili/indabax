@@ -1,0 +1,41 @@
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+
+    container_name: sentinel-backend
+
+    ports:
+      - "8001:8000"
+
+    environment:
+      HF_HOME: /app/part2_ml_detection/models/.hf
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+
+    volumes:
+      - ./part2_ml_detection/models/.hf:/app/part2_ml_detection/models/.hf:ro
+      - ./part3_decision_engine/logs:/app/part3_decision_engine/logs
+      - ./dashboard/backend/data:/app/dashboard/backend/data
+
+    restart: unless-stopped
+
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: http://127.0.0.1:8001
+
+    container_name: sentinel-frontend
+
+    ports:
+      - "5173:80"
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped

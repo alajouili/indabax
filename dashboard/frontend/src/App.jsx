@@ -14,7 +14,9 @@ import {
 
 import "./App.css";
 
-const API = "http://127.0.0.1:8000";
+const API =
+  import.meta.env.VITE_API_URL ||
+  "http://127.0.0.1:8000";
 
 // Visual-only constants (colors used by the charts)
 const OUTCOME_COLORS = ["#34d399", "#38bdf8", "#fbbf24", "#fb7185"];
