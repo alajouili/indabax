@@ -1,0 +1,140 @@
+version: "2026-09-21-a"
+
+trust:
+  default: "UNKNOWN"
+  default_by_type:
+    user: "TRUSTED_USER"
+    system: "TRUSTED_INTERNAL"
+    internal_tool: "TRUSTED_INTERNAL"
+    email: "UNKNOWN"
+    document: "UNKNOWN"
+    wiki: "INTERNAL"
+    ticket: "INTERNAL"
+    web: "UNTRUSTED_EXTERNAL"
+  internal_domains:
+    - "corp.local"
+    - "company.internal"
+  trusted_senders:
+    - "security@corp.local"
+    - "admin@corp.local"
+  explicitly_untrusted_types:
+    - "web"
+    - "external_document"
+  external_level: "UNTRUSTED_EXTERNAL"
+  internal_level: "INTERNAL"
+
+permissions:
+  unknown_role_policy: "unknown"
+  roles:
+    enterprise_assistant:
+      allowed_tools:
+        - "read_document"
+        - "search"
+        - "create_ticket"
+        - "send_email"
+        - "upload_file"
+        - "write_memory"
+      prerequisites:
+        upload_file:
+          - "approved_destination"
+      confirmation_required:
+        - "write_memory"
+    security_assistant:
+      allowed_tools:
+        - "read_document"
+        - "search"
+        - "create_ticket"
+      prerequisites: {}
+      confirmation_required: []
+
+scan:
+  max_text_chars: 50000
+  max_records: 64
+  max_field_chars: 12000
+  ignored_field_names:
+    - "action_id"
+    - "scenario_id"
+    - "expected"
+
+normalization:
+  strip_zero_width: true
+  collapse_whitespace: true
+  strip_separators_for_fold: true
+
+encoding:
+  enabled:
+    - "url"
+    - "base64"
+    - "hex"
+    - "rot13"
+    - "reversed"
+  max_depth: 2
+  min_printable_ratio: 0.80
+  min_candidate_chars: 8
+  max_decoded_chars: 12000
+
+secrets:
+  key_name_patterns:
+    - "(?i)(api[_-]?key|token|password|passwd|secret|credential|private[_-]?key)"
+  value_patterns:
+    - name: "generic_api_key"
+      regex: "(?i)\\b(?:api[_-]?key|token|secret)\\s*[:=]\\s*[A-Za-z0-9_\\-]{12,}\\b"
+    - name: "bearer_token"
+      regex: "(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*"
+    - name: "private_key_header"
+      regex: "-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
+    - name: "long_secret_like"
+      regex: "\\b[A-Za-z0-9_\\-]{32,}\\b"
+
+sinks:
+  external_tools:
+    - "send_email"
+    - "upload_file"
+    - "http_request"
+    - "post_message"
+  internal_domains:
+    - "corp.local"
+    - "company.internal"
+  recipient_keys:
+    - "to"
+    - "recipient"
+    - "recipients"
+    - "url"
+    - "destination"
+    - "endpoint"
+
+mirroring:
+  imperative_patterns:
+    - "(?i)\\b(ignore|disregard|override|bypass)\\b.{0,80}\\b(instructions?|polic(?:y|ies)|rules?|system)\\b"
+    - "(?i)\\b(send|upload|post|forward|exfiltrate|reveal|copy|delete|disable|execute|run|write)\\b.{0,120}\\b(secret|token|credential|password|file|data|memory|policy|command)\\b"
+    - "(?i)\\bdo not tell\\b|\\bkeep this secret\\b|\\bwithout asking\\b"
+  authority_patterns:
+    - "(?i)\\b(system|administrator|security team|developer)\\s+(says|requires|approved|authorized)\\b"
+    - "(?i)\\bi am (?:the )?(administrator|admin|system owner|security officer)\\b"
+  similarity_threshold: 0.72
+  min_overlap_tokens: 4
+  fragment_join_window: 8
+
+action_shape:
+  consequential_tools:
+    - "send_email"
+    - "upload_file"
+    - "http_request"
+    - "delete_file"
+    - "execute_command"
+    - "change_permissions"
+    - "write_memory"
+  control_change_tools:
+    - "change_permissions"
+    - "disable_security"
+    - "modify_policy"
+  memory_write_tools:
+    - "write_memory"
+    - "update_memory"
+  recipient_keys:
+    - "to"
+    - "recipient"
+    - "recipients"
+    - "url"
+    - "destination"
+    - "endpoint"

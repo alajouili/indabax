@@ -1,0 +1,6 @@
+{
+  "action_id": "perm-001",
+  "agent_role": "security_assistant",
+  "instruction_source": {"type": "user", "content": "Delete the temporary file."},
+  "proposed_action": {"tool": "delete_file", "params": {"path": "tmp.txt"}}
+}

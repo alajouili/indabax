@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 dashboard/backend/data/pending_reviews.json
+/logs/
+.pytest_cache/
+*.egg-info/

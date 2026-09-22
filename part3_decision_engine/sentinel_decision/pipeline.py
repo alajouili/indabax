@@ -15,6 +15,8 @@ from .models import (
     Outcome,
     Verdict,
 )
+from .part1_client import Part1Provider
+from .part2_client import Part2Provider
 from .part2_client import Part2Provider
 from .rewriter import rewrite_action
 from .signals import parse_proposal
@@ -31,6 +33,7 @@ class DecisionPipeline:
         gate: EnforcementGate | None = None,
         trace_log: TraceLog | None = None,
         state: DecisionState | None = None,
+        part1_provider: Part1Provider | None = None,
         part2_provider: Part2Provider | None = None,
     ):
         self.policy = policy
@@ -38,13 +41,55 @@ class DecisionPipeline:
         self.approver = approver or DenyAllApprover()
         self.gate = gate or EnforcementGate()
         self.state = state or DecisionState.from_policy(policy)
+        self.part1_provider = part1_provider
         self.part2_provider = part2_provider
         self.trace_log = trace_log or TraceLog(
         Path(policy.logging.path),
         redact_param_keys=policy.logging.redact_param_keys,
         safe_placeholder=policy.logging.safe_placeholder,
         )
+    @staticmethod
+    def _needs_part1(raw: dict[str, Any]) -> bool:
+        if isinstance(raw.get("part1"), dict):
+            p1 = raw["part1"]
 
+            return not all(
+                key in p1
+                for key in (
+                    "trust_level",
+                    "permission_ok",
+                )
+            )
+
+        return not all(
+            key in raw
+            for key in (
+                "trust_level",
+                "permission_ok",
+            )
+        )
+
+
+    def _attach_part1(
+        self,
+        raw: dict[str, Any],
+    ) -> dict[str, Any]:
+
+        if (
+            self.part1_provider is None
+            or not self._needs_part1(raw)
+        ):
+            return raw
+
+        merged = dict(raw)
+
+        part1_result = self.part1_provider.verify(
+            dict(raw)
+        )
+
+        merged["part1"] = part1_result
+
+        return merged
     @staticmethod
     def _needs_part2(raw: dict[str, Any]) -> bool:
         if isinstance(raw.get("part2"), dict):
@@ -91,7 +136,13 @@ class DecisionPipeline:
         raw = dict(proposal) if isinstance(proposal, dict) else {}
 
         try:
+            # Part 1 first: deterministic structural verification
+            raw = self._attach_part1(raw)
+
+            # Part 2 second: ML analysis
             raw = self._attach_part2(raw)
+
+            # Part 3 consumes both outputs
             parsed = parse_proposal(raw)
         except Exception as exc:
             verdict = Verdict(
