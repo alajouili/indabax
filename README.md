@@ -1565,3 +1565,238 @@ Part 1 → Part 2 → Part 3 → Dashboard
 pipeline is implemented and has been tested end-to-end.
 
 The project is intended for experimentation, demonstration, research, and continued development toward safer enterprise AI-agent systems.
+# Docker Compose
+
+The complete SENTINEL stack can be launched with Docker Compose.
+
+## Start the Complete Stack
+
+From the repository root:
+
+```bash
+docker compose up -d --build
+```
+
+This starts:
+
+```text
+sentinel-backend
+  ├── Part 1 — Structural Verifier
+  ├── Part 2 — DeBERTa + Embeddings
+  ├── Part 3 — Decision Engine
+  └── FastAPI
+
+sentinel-frontend
+  └── React + Nginx
+```
+
+## Access
+
+Frontend:
+
+```text
+http://localhost:5173
+```
+
+Backend:
+
+```text
+http://127.0.0.1:8001
+```
+
+API documentation:
+
+```text
+http://127.0.0.1:8001/docs
+```
+
+Health endpoint:
+
+```text
+http://127.0.0.1:8001/api/health
+```
+
+## Stop the Stack
+
+```bash
+docker compose down
+```
+
+## Dockerized End-to-End Validation
+
+The complete Dockerized SENTINEL pipeline has been tested with the three demonstration scenarios.
+
+### SAFE
+
+```text
+SAFE
+  ↓
+Part 1
+  ↓
+Part 2
+  ↓
+Part 3
+  ↓
+ALLOW
+```
+
+### SUSPICIOUS
+
+```text
+SUSPICIOUS
+    ↓
+Part 1
+    ↓
+Part 2
+    ↓
+Part 3
+    ↓
+Risk 68/100
+    ↓
+ESCALATE
+    ↓
+PENDING HUMAN REVIEW
+```
+
+### MALICIOUS
+
+```text
+MALICIOUS
+    ↓
+Part 1
+    ↓
+Part 2
+    ↓
+Part 3
+    ↓
+Risk 100/100
+    ↓
+BLOCK
+```
+
+The Dockerized end-to-end pipeline therefore executes:
+
+```text
+Raw Proposal
+     |
+     v
+Part 1
+Structural Verification
+     |
+     v
+Part 2
+DeBERTa + Embeddings
+     |
+     v
+Part 3
+Risk Scoring + Policy
+     |
+     v
+ALLOW / REWRITE / ESCALATE / BLOCK
+     |
+     v
+Dashboard / API
+```
+
+Part 2 runs with Hugging Face offline mode enabled.
+
+The local model cache is mounted into the backend container:
+
+```text
+part2_ml_detection/models/.hf
+        ↓
+Docker volume
+        ↓
+/app/part2_ml_detection/models/.hf
+```
+
+This allows the ML models to run without downloading them again at runtime.
+
+## Docker Architecture
+
+```text
+Docker Compose
+      |
+      +-----------------------------+
+      |                             |
+      v                             v
+sentinel-frontend             sentinel-backend
+      |                             |
+ React + Vite                      FastAPI
+ Nginx                              |
+ Port 5173                          |
+                                    +-- Part 1
+                                    |   Structural Verifier
+                                    |
+                                    +-- Part 2
+                                    |   DeBERTa
+                                    |   MiniLM Embeddings
+                                    |
+                                    +-- Part 3
+                                    |   Risk Engine
+                                    |   Policy Engine
+                                    |   Human Review
+                                    |   Enforcement
+                                    |
+                                    +-- Audit Logging
+
+                              Port 8001
+```
+
+## Verify Running Containers
+
+```bash
+docker compose ps
+```
+
+Expected services:
+
+```text
+sentinel-backend
+sentinel-frontend
+```
+
+## View Logs
+
+Backend logs:
+
+```bash
+docker compose logs backend
+```
+
+Frontend logs:
+
+```bash
+docker compose logs frontend
+```
+
+Follow logs in real time:
+
+```bash
+docker compose logs -f
+```
+
+## Rebuild After Code Changes
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+## Docker Status
+
+```text
+Backend Dockerization     Implemented
+Frontend Dockerization    Implemented
+Docker Compose            Implemented
+Offline ML                Implemented
+Local Model Mount         Implemented
+Part 1 in Docker          Tested
+Part 2 in Docker          Tested
+Part 3 in Docker          Tested
+Dashboard in Docker       Tested
+SAFE Scenario             Tested
+SUSPICIOUS Scenario       Tested
+MALICIOUS Scenario        Tested
+Full E2E Docker Pipeline  Tested
+```
