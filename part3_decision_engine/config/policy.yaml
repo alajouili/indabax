@@ -46,6 +46,8 @@ overrides:
   permission_denied_minimum: ESCALATE
   input_incomplete_minimum: ESCALATE
   critical_structural_flags:
+    UNTRUSTED_MEMORY_POLICY_WRITE: BLOCK
+    SENSITIVE_DATA_PROPAGATION: BLOCK
     CREDENTIAL_EXFILTRATION: BLOCK
     DESTRUCTIVE_ACTION_REQUEST: BLOCK
   critical_content_flags:
@@ -53,8 +55,12 @@ overrides:
   high_ml_confidence: 0.90
   high_ml_with_untrusted_minimum: ESCALATE
   very_low_similarity_minimum: ESCALATE
-
+  
 rewrite:
+  internal_domains:
+    - atlas.example
+    - corp.local
+    - company.internal
   enabled: true
   redact_param_keys:
     - password

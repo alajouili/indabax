@@ -1,3 +1,72 @@
+# SENTINEL — AI Agent Security Defense System
+
+SENTINEL is a defense layer for enterprise AI agents. It analyzes every proposed agent action before execution and decides whether the action should be:
+
+- ALLOW
+- REWRITE
+- ESCALATE for human approval
+- BLOCK
+
+The objective is to protect AI agents against indirect prompt injection, data exfiltration, memory poisoning, destructive actions, and unauthorized tool use while preserving legitimate task utility.
+
+## Architecture
+
+SENTINEL uses three independent security layers:
+
+### Part 1 — Rule-Based Structural Verifier
+
+Deterministic security checks for:
+
+- instruction source and trust level
+- permissions and allowed tools
+- sensitive data propagation
+- external destinations
+- destructive actions
+- instruction mirroring
+- memory poisoning attempts
+- structural anomalies
+
+### Part 2 — ML Detection
+
+Machine-learning analysis using:
+
+- prompt-injection classifier
+- semantic embeddings
+- task/action similarity
+- semantic drift detection
+- normalization and chunking
+
+Models are executed locally and offline.
+
+### Part 3 — Decision Engine
+
+Aggregates Part 1 and Part 2 signals into a final risk score.
+
+Possible decisions:
+
+- ALLOW
+- REWRITE
+- ESCALATE
+- BLOCK
+
+Critical structural findings can override the numerical risk score.
+
+## Additional Components
+
+- FastAPI backend
+- Official SENTINEL HTTP defense adapter
+- Dashboard
+- Docker deployment
+- Audit logging
+- Human confirmation support
+
+## Public Evaluation
+
+Evaluation command:
+
+```bash
+uv run sentinel eval public \
+  --defense-url http://127.0.0.1:8001
 # SENTINEL
 
 SENTINEL is an AI-agent security system designed to analyze proposed actions before execution.

@@ -8,7 +8,12 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+from dashboard.backend.official_adapter import (
+    OfficialDefenseRequest,
+    OfficialDefenseDecision,
+    CandidateAction,
+    build_internal_proposal,
+)
 
 # ============================================================
 # PATHS
@@ -127,7 +132,9 @@ trace_log = TraceLog(
 # ============================================================
 
 state = DecisionState.from_policy(policy)
-
+# One Part 3 state per official simulator run.
+# This preserves multi-step attack history without mixing scenarios.
+official_run_states: dict[str, DecisionState] = {}
 
 # ============================================================
 # HUMAN REVIEW STORE
@@ -146,7 +153,313 @@ app = FastAPI(
     title="SENTINEL Dashboard API",
     version="1.0.0",
 )
+@app.get("/healthz")
+def healthz():
+    return {
+        "status": "ok",
+        "service": "sentinel-defense"
+    }
+# ============================================================
+# OFFICIAL SENTINEL STARTER KIT ADAPTER
+# ============================================================
 
+@app.post(
+    "/v1/decision",
+    response_model=OfficialDefenseDecision,
+)
+def official_sentinel_decision(
+    request: OfficialDefenseRequest,
+):
+
+    # --------------------------------------------------------
+    # 1. Create/reset state for this official simulator run
+    # --------------------------------------------------------
+
+    if (
+        request.run_id not in official_run_states
+        or request.step_id == 1
+    ):
+        official_run_states[request.run_id] = (
+            DecisionState.from_policy(policy)
+        )
+
+    run_state = official_run_states[
+        request.run_id
+    ]
+
+    # --------------------------------------------------------
+    # 2. Convert official request → our SENTINEL format
+    # --------------------------------------------------------
+
+    proposal = build_internal_proposal(
+        request
+    )
+
+    # --------------------------------------------------------
+    # 3. Run our real Part 1 → Part 2 → Part 3 pipeline
+    # --------------------------------------------------------
+
+    pipeline = create_pipeline(
+        PendingApprover(),
+        pipeline_state=run_state,
+    )
+
+    verdict = pipeline.run(
+        proposal
+    )
+
+    decision = verdict.outcome.value.lower()
+
+    risk_score = max(
+        0.0,
+        min(
+            1.0,
+            verdict.risk_score / 100.0,
+        ),
+    )
+
+    reason_codes = list(
+        verdict.reason_codes
+    )
+
+    explanation = verdict.explanation
+
+    rewritten_action = None
+
+    # --------------------------------------------------------
+    # 4. Official policy checks
+    # --------------------------------------------------------
+
+    candidate = request.candidate_action
+
+    # request_confirmation refers to another action.
+    if (
+        candidate.type
+        == "request_confirmation"
+        and candidate.confirmation_for
+        is not None
+    ):
+        action_for_policy = (
+            candidate.confirmation_for
+        )
+    else:
+        action_for_policy = candidate
+
+    policy_override = False
+
+    if (
+        action_for_policy.type
+        == "tool_call"
+        and action_for_policy.tool
+    ):
+
+        tool_name = action_for_policy.tool
+
+        allowed_tools = set(
+            request.policy_context.get(
+                "allowed_tools",
+                [],
+            )
+        )
+
+        consequential_tools = set(
+            request.policy_context.get(
+                "consequential_tools",
+                [],
+            )
+        )
+
+        confirmation_tools = set(
+            request.policy_context.get(
+                "confirmation_required_tools",
+                [],
+            )
+        )
+
+        # ----------------------------------------------------
+        # Tool not permitted for this specific scenario
+        # ----------------------------------------------------
+
+        if (
+            allowed_tools
+            and tool_name not in allowed_tools
+        ):
+
+            decision = "block"
+
+            risk_score = max(
+                risk_score,
+                0.95,
+            )
+
+            reason_codes.insert(
+                0,
+                "OFFICIAL_TOOL_NOT_ALLOWED",
+            )
+
+            explanation = (
+                f"Tool '{tool_name}' is not allowed "
+                "for this scenario. "
+                + explanation
+            )
+
+            policy_override = True
+
+        # ----------------------------------------------------
+        # Consequential action requires confirmation
+        # ----------------------------------------------------
+
+        else:
+
+            requires_confirmation = (
+                tool_name
+                in consequential_tools
+                or
+                tool_name
+                in confirmation_tools
+            )
+
+            confirmed = (
+                action_for_policy.digest()
+                in
+                request.history_digest
+                .confirmations_granted
+            )
+
+            if (
+                requires_confirmation
+                and not confirmed
+                and
+                candidate.type
+                != "request_confirmation"
+                and decision != "block"
+            ):
+
+                decision = "escalate"
+
+                risk_score = max(
+                    risk_score,
+                    0.60,
+                )
+
+                reason_codes.insert(
+                    0,
+                    "MISSING_HUMAN_CONFIRMATION",
+                )
+
+                explanation = (
+                    f"Tool '{tool_name}' requires "
+                    "human confirmation. "
+                    + explanation
+                )
+
+                policy_override = True
+
+    # --------------------------------------------------------
+    # 5. Translate our REWRITE to official CandidateAction
+    # --------------------------------------------------------
+
+    rewritten_action = None
+
+    if decision == "rewrite":
+        rewrite = verdict.rewrite
+
+        if (
+            rewrite is None
+            or rewrite.rewritten_action is None
+        ):
+            decision = "block"
+            risk_score = max(risk_score, 0.50)
+            reason_codes.append("REWRITE_NOT_PORTABLE")
+
+        else:
+            rewritten = rewrite.rewritten_action
+
+            if hasattr(rewritten, "model_dump"):
+                rewritten = rewritten.model_dump(mode="json")
+
+            rewritten_tool = rewritten.get("tool")
+            rewritten_params = rewritten.get("params", {})
+
+            if candidate.type == "tool_call":
+                rewritten_action = CandidateAction(
+                    type="tool_call",
+                    tool=rewritten_tool or candidate.tool,
+                    arguments=rewritten_params,
+                    final=candidate.final,
+                )
+
+            elif candidate.type == "respond":
+                rewritten_action = CandidateAction(
+                    type="respond",
+                    content=str(
+                        rewritten_params.get(
+                            "content",
+                            candidate.content or "",
+                        )
+                    ),
+                    final=candidate.final,
+                )
+
+            elif candidate.type == "memory_write":
+                rewritten_action = CandidateAction(
+                    type="memory_write",
+                    content=str(
+                        rewritten_params.get(
+                            "content",
+                            candidate.content or "",
+                        )
+                    ),
+                    final=candidate.final,
+                )
+            elif candidate.type == "request_confirmation":
+                    rewritten_action = CandidateAction(
+                        type="request_confirmation",
+                        content=candidate.content,
+                        confirmation_for=candidate.confirmation_for,
+                        final=candidate.final,
+                    )
+            else:
+                decision = "block"
+                risk_score = max(risk_score, 0.50)
+                reason_codes.append("REWRITE_NOT_PORTABLE")
+
+    # --------------------------------------------------------
+    # 6. Official response requires a confidence value
+    # --------------------------------------------------------
+
+    confidence = (
+        0.90
+        if policy_override
+        else 0.70
+    )
+
+    # Remove duplicates and respect official max length.
+    reason_codes = list(
+        dict.fromkeys(reason_codes)
+    )[:16]
+
+    return OfficialDefenseDecision(
+        decision=decision,
+        risk_score=risk_score,
+        confidence=confidence,
+        reason_codes=reason_codes,
+        explanation=explanation[:500],
+        rewritten_action=rewritten_action,
+        metadata={
+            "engine": "SENTINEL-Part1-Part2-Part3",
+            "internal_risk_score":
+                verdict.risk_score,
+            "internal_outcome":
+                verdict.outcome.value,
+            "policy_version":
+                verdict.policy_version,
+            "official_run_id":
+                request.run_id,
+            "official_step_id":
+                request.step_id,
+        },
+    )
 
 # ============================================================
 # CORS
@@ -533,7 +846,51 @@ def evaluate(
         )
 
     return result
+# ============================================================
+# GMAIL EMAIL EVALUATION
+# ============================================================
 
+@app.post("/api/gmail/evaluate")
+def evaluate_gmail(
+    proposal: dict[str, Any],
+):
+
+    # Each email is evaluated with a fresh state.
+    # This prevents SESSION_RISK_ACCUMULATED from a previous
+    # unrelated email affecting the current email.
+
+    fresh_state = DecisionState.from_policy(
+        policy
+    )
+
+    pipeline = create_pipeline(
+        PendingApprover(),
+        pipeline_state=fresh_state,
+    )
+
+    verdict = pipeline.run(
+        proposal
+    )
+
+    result = verdict.model_dump(
+        mode="json"
+    )
+
+    if (
+        verdict.outcome.value
+        == "ESCALATE"
+        and
+        verdict.human_response
+        is HumanResponse.PENDING
+    ):
+
+        review_store.add(
+            verdict.action_id,
+            proposal,
+            result,
+        )
+
+    return result
 
 # ============================================================
 # DEMO SCENARIOS

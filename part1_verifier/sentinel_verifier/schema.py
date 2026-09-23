@@ -30,6 +30,9 @@ class FindingSeverity(StrEnum):
 
 FLAG_VOCABULARY = frozenset(
     {
+        "SENSITIVE_DATA_PROPAGATION",
+        "DESTRUCTIVE_ACTION_REQUEST",
+        "UNTRUSTED_MEMORY_POLICY_WRITE",
         "INPUT_INCOMPLETE",
         "MALFORMED_INPUT",
         "UNTRUSTED_SOURCE",

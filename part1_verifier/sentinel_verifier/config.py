@@ -65,9 +65,9 @@ class SecretRules(StrictModel):
 
 class SinkRules(StrictModel):
     external_tools: list[str] = Field(default_factory=list)
+    protected_tools: list[str] = Field(default_factory=list)
     internal_domains: list[str] = Field(default_factory=list)
     recipient_keys: list[str] = Field(default_factory=list)
-
 
 class MirroringRules(StrictModel):
     imperative_patterns: list[str] = Field(default_factory=list)
@@ -75,6 +75,14 @@ class MirroringRules(StrictModel):
     similarity_threshold: float = 0.72
     min_overlap_tokens: int = 4
     fragment_join_window: int = 8
+    
+    
+
+    memory_policy_patterns: list[str] = Field(default_factory=list)
+    memory_permission_patterns: list[str] = Field(default_factory=list)
+
+    
+    
 
 
 class ActionShapeRules(StrictModel):
@@ -82,7 +90,7 @@ class ActionShapeRules(StrictModel):
     control_change_tools: list[str] = Field(default_factory=list)
     memory_write_tools: list[str] = Field(default_factory=list)
     recipient_keys: list[str] = Field(default_factory=list)
-
+    destructive_param_values: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
 
 class Rules(StrictModel):
     version: str

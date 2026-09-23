@@ -58,6 +58,77 @@ def analyze_mirroring(
     ignored = set(scan_rules.ignored_field_names)
     source_strings = list(_strings(source_bundle, ignored))[: scan_rules.max_records * 8]
 
+        # --------------------------------------------------------
+    # Untrusted source trying to persist a false policy
+    # into long-term memory.
+    # --------------------------------------------------------
+
+    if action:
+        tool = str(
+            action.get("tool")
+            or action.get("action")
+            or ""
+        )
+
+        params = (
+            action.get("params")
+            if isinstance(action.get("params"), dict)
+            else {}
+        )
+
+        source = (
+            source_bundle.get("instruction_source", {})
+            if isinstance(source_bundle, dict)
+            else {}
+        )
+
+        source_trust = str(
+            source.get("official_trust_level")
+            or source.get("trust_level")
+            or ""
+        ).strip().lower()
+
+        if (
+            tool in {"write_memory", "update_memory"}
+            and source_trust in {
+                "untrusted_external",
+                "adversary_controlled",
+            }
+        ):
+            memory_content = str(
+                params.get("content") or ""
+            )
+
+            normalized_memory, _ = normalize_text(
+                memory_content
+            )
+
+            has_policy_claim = _matches_any(
+                normalized_memory,
+                rules.memory_policy_patterns,
+            )
+
+            has_permission_claim = _matches_any(
+                normalized_memory,
+                rules.memory_permission_patterns,
+            )
+
+            if has_policy_claim and has_permission_claim:
+                flags.append(
+                    "UNTRUSTED_MEMORY_POLICY_WRITE"
+                )
+
+                findings.append(
+                    Finding(
+                        code="UNTRUSTED_MEMORY_POLICY_WRITE",
+                        severity=FindingSeverity.CRITICAL,
+                        evidence=(
+                            "untrusted source attempts to persist "
+                            "a policy or authorization claim"
+                        ),
+                        location="proposed_action.params.content",
+                    )
+                )
     for path, raw in source_strings:
         raw = raw[: scan_rules.max_field_chars]
         normalized, changed = normalize_text(raw)

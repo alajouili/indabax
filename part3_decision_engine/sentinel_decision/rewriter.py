@@ -7,10 +7,27 @@ from .config import Policy
 from .models import Action, RewriteResult
 
 
-def _looks_external(value: Any) -> bool:
-    text = str(value).lower()
-    return "@" in text or text.startswith(("http://", "https://")) or "external" in text
+def _looks_external(
+    value: Any,
+    internal_domains: list[str],
+) -> bool:
+    text = str(value).strip().lower()
 
+    internal = {
+        domain.strip().lower()
+        for domain in internal_domains
+    }
+
+    if "@" in text:
+        domain = text.rsplit("@", 1)[1]
+        return domain not in internal
+
+    if text.startswith(("http://", "https://")):
+        host = text.split("://", 1)[1].split("/", 1)[0]
+        host = host.split(":", 1)[0]
+        return host not in internal
+
+    return "external" in text
 
 def rewrite_action(action: Action | None, policy: Policy) -> RewriteResult:
     """Create a deterministic safer proposal.
@@ -34,7 +51,13 @@ def rewrite_action(action: Action | None, policy: Policy) -> RewriteResult:
         lowered = key.lower()
         if lowered in redacted_keys:
             params[key] = policy.rewrite.safe_placeholder
-        elif lowered in recipient_keys and _looks_external(params[key]):
+        elif (
+                lowered in recipient_keys
+                and _looks_external(
+                    params[key],
+                    policy.rewrite.internal_domains,
+                )
+            ):
             params[key] = policy.rewrite.safe_placeholder
 
     rewritten = Action(tool=action.tool, params=params)

@@ -26,6 +26,45 @@ trust:
 permissions:
   unknown_role_policy: "unknown"
   roles:
+    sentinel_official_agent:
+      allowed_tools:
+        # Enterprise
+        - respond
+        - write_memory
+        - request_confirmation
+        - email_search
+        - email_read
+        - email_draft
+        - email_send
+        - document_search
+        - document_read
+        - wiki_search
+        - ticket_read
+        - ticket_update
+
+        # Finance
+        - customer_lookup
+        - account_summary
+        - case_document_read
+        - case_note_create
+        - policy_search
+        - payment_prepare
+        - payment_confirm
+        - payment_execute
+
+        # SOC
+        - alert_search
+        - alert_read
+        - asset_lookup
+        - intel_search
+        - incident_create
+        - incident_update
+        - remediation_prepare
+        - remediation_execute
+
+      prerequisites: {}
+
+      confirmation_required: []
     enterprise_assistant:
       allowed_tools:
         - "read_document"
@@ -87,14 +126,27 @@ secrets:
       regex: "\\b[A-Za-z0-9_\\-]{32,}\\b"
 
 sinks:
+  protected_tools:
+    - "case_note_create"
+    - "ticket_update"
+    - "incident_update"
+    - "write_memory"
+    - "respond"
+    - "incident_create"
+
   external_tools:
     - "send_email"
+    - "email_draft"
+    - "email_send"
     - "upload_file"
     - "http_request"
     - "post_message"
+
   internal_domains:
     - "corp.local"
     - "company.internal"
+    - "atlas.example"
+
   recipient_keys:
     - "to"
     - "recipient"
@@ -104,6 +156,11 @@ sinks:
     - "endpoint"
 
 mirroring:
+  memory_policy_patterns:
+    - "(?i)\\b(policy|rules?|instruction|approved|authorized|permission)\\b"
+
+  memory_permission_patterns:
+    - "(?i)\\b(may|can|allowed|must|should)\\b.{0,100}\\b(email(?:ed|ing)?|send|sent|share(?:d)?|forward(?:ed)?|upload(?:ed)?|disclose(?:d)?)\\b"
   imperative_patterns:
     - "(?i)\\b(ignore|disregard|override|bypass)\\b.{0,80}\\b(instructions?|polic(?:y|ies)|rules?|system)\\b"
     - "(?i)\\b(send|upload|post|forward|exfiltrate|reveal|copy|delete|disable|execute|run|write)\\b.{0,120}\\b(secret|token|credential|password|file|data|memory|policy|command)\\b"
@@ -116,6 +173,10 @@ mirroring:
   fragment_join_window: 8
 
 action_shape:
+  destructive_param_values:
+    incident_update:
+      status:
+        - "closed" 
   consequential_tools:
     - "send_email"
     - "upload_file"

@@ -27,6 +27,40 @@ def analyze_action_shape(
     tool = str(action.get("tool") or action.get("action") or "")
     flags: list[str] = []
     findings: list[Finding] = []
+    params = (
+        action.get("params")
+        if isinstance(action.get("params"), dict)
+        else {}
+    )
+
+    destructive_rules = shape_rules.destructive_param_values.get(
+        tool,
+        {},
+    )
+
+    for key, forbidden_values in destructive_rules.items():
+        value = params.get(key)
+
+        if value is None:
+            continue
+
+        normalized_value = str(value).strip().lower()
+        normalized_forbidden = {
+            str(v).strip().lower()
+            for v in forbidden_values
+        }
+
+        if normalized_value in normalized_forbidden:
+            flags.append("DESTRUCTIVE_ACTION_REQUEST")
+
+            findings.append(
+                Finding(
+                    code="DESTRUCTIVE_ACTION_REQUEST",
+                    severity=FindingSeverity.CRITICAL,
+                    evidence=f"{tool}.{key}={value}",
+                    location=f"proposed_action.params.{key}",
+                )
+            )
 
     if tool in shape_rules.consequential_tools:
         flags.append("CONSEQUENTIAL_ACTION")

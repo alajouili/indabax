@@ -64,6 +64,7 @@ class RewritePolicy(StrictModel):
     enabled: bool = True
     redact_param_keys: list[str] = Field(default_factory=list)
     external_recipient_keys: list[str] = Field(default_factory=list)
+    internal_domains: list[str] = Field(default_factory=list)
     safe_placeholder: str = "[REDACTED_BY_SENTINEL]"
     requirements: list[str] = Field(default_factory=list)
 

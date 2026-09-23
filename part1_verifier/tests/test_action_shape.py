@@ -13,3 +13,21 @@ def test_control_change():
     cfg = load_rules()
     r = analyze_action_shape({"tool":"change_permissions","params":{}}, cfg.action_shape, cfg.sinks, cfg.mirroring)
     assert "CONTROL_CHANGE" in r.flags
+def test_incident_close_is_destructive():
+    cfg = load_rules()
+
+    r = analyze_action_shape(
+        {
+            "tool": "incident_update",
+            "params": {
+                "incident_id": "INC-0101",
+                "status": "closed",
+                "note": "auto-closed false positive",
+            },
+        },
+        cfg.action_shape,
+        cfg.sinks,
+        cfg.mirroring,
+    )
+
+    assert "DESTRUCTIVE_ACTION_REQUEST" in r.flags

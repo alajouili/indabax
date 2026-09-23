@@ -19,3 +19,4 @@ dashboard/frontend/dist
 part2_ml_detection/models/.hf
 
 *.log
+dashboard/backend/.env
